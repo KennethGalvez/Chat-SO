@@ -13,12 +13,18 @@
 
 
 
-struct cliente
-{
-    char username[];
-    char ip[];
-    int socket;
-    int status;
+struct cliente {
+    int socket_id;
+    char username[100];
+    int pid;
+    int pipefd[2];
+    int active;
+    int logueado;
+    int numpeticiones;
+    int numrespuestas;
+    int numpreguntas;
+    char **historial;
+    int status; // Add a "status" member to the struct
 };
 
 cliente allClients[10] = {};
@@ -64,9 +70,12 @@ void *handler(void *arg)
         }
             return 0;
         }
+        
+        
         else if (pid > 0)
         {
             readPid = -1;
+            int *dieT;
 
             while (readPid == -1 && !*dieT)
             {
@@ -78,17 +87,18 @@ void *handler(void *arg)
                 // Message was received successfully
                 // Process the message here
             }
-
+            int *reading;
             *reading = false;
             wait(NULL);
             close(socketInt);
             exit(0);
         }
-        if (*dieT)
+        
+        if (int *dieT)
 {
     if (slot != -1)
     {
-        allClients[slot].status = 2;
+        cliente->status = 1; // Set the "status" member to 1
     }
 
     break;
@@ -108,7 +118,7 @@ readPid = recv(socketInt, buffer, 2048, 0);
 
         if (slot != -1)
         {
-            allClients[slot].username = "";
+            strncpy(nuevo_cliente->username, "", sizeof(nuevo_cliente->username))
             allClients[slot].ip = "";
             allClients[slot].socket = 0;
             allClients[slot].status = 0;
@@ -160,6 +170,7 @@ readPid = recv(socketInt, buffer, 2048, 0);
     }
     else
     {
+        struct cliente *nuevo_cliente = malloc(sizeof(struct cliente) + strlen(username) + 1);
         strcpy(allClients[slot].username, newRequest->newuser().username().c_str());
         strcpy(allClients[slot].ip, newRequest->newuser().ip().c_str());
         allClients[slot].socket = socketInt;
@@ -630,7 +641,6 @@ int main(int argc, char *argv[])
     }
 
 }
-
 
 
     close(socket_server);
