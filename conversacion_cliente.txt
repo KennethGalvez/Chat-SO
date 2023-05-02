@@ -1,0 +1,27 @@
+
+
+		-------- Se inicio eL chat------------
+
+
+ yo (08:58) -> Hola
+ otro usuario (08:58) -> Wenas
+
+		-------- Se inicio eL chat------------
+
+
+ yo (09:00) -> Hola
+ otro usuario (09:00) -> Como estas
+
+		-------- Se inicio eL chat------------
+
+
+ yo (09:04) -> Hola
+ otro usuario (09:04) -> Buenas
+ yo (09:05) -> Como estas?
+ otro usuario (09:05) -> Bien y tu
+ yo (09:05) -> Bien gracias
+ otro usuario (09:05) -> Me alegro
+ yo (09:05) -> Bueno ya me voy
+ otro usuario (09:05) -> Adios
+ yo (09:06) -> adios
+ otro usuario (09:06) -> 
