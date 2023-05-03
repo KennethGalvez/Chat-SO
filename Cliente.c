@@ -68,35 +68,34 @@ int main()
     pthread_t thread_id;
 
 
-    //Aqui se crea el socket
-    client_fd = socket(AF_INET, SOCK_STREAM, 0);
-    if (client_fd < 0)
-    {
-        perror("Error al creando el socket");
+    //Se crea el socket
+    if ((client_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+        perror("Error al crear el socket");
         exit(EXIT_FAILURE);
     }
 
     //server address
+    memset(&server_addr, 0, sizeof(server_addr));
     server_addr.sin_family = AF_INET;
     server_addr.sin_addr.s_addr = INADDR_ANY;
     server_addr.sin_port = htons(PORT);
 
     //connection
-    if (connect(client_fd, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0)
-    {
-        perror("Connection error");
+    if (connect(client_fd, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
+        perror("Error al conectar al servidor");
         exit(EXIT_FAILURE);
     }
 
     printf("Conectado!\n");
 
 
-    //Thread created to hande incoming messages
+    //Crear hilo para recibir mensajes
     if (pthread_create(&thread_id, NULL, receive_handler, (void *)&client_fd) != 0) {
-        perror("Error al crear el hilo de recepción");
+        perror("Error al crear el hilo de recepcion");
         exit(EXIT_FAILURE);
     }
 
+    // Esperar por la entrada del usuario y enviar mensajes al servidor
     char input[256];
     ChatSistOS__UserOption user_option;
     char buffer[BUFFER_SIZE];
@@ -132,49 +131,52 @@ int main()
         else if (op == 2) //lista de usuarios
         
         {
-            
-            
             user_option.op = 2;
+
             ChatSistOS__UserList user_list = CHAT_SIST_OS__USER_LIST__INIT;
-            printf("escriba 1 para toda la lista y 2 para un usuario especifico");
+            printf("Escriba el numero:\n");
+            printf("1. Ver lista completa de usuarios\n");
+            printf("2. Buscar un usuario específico\n");
+
             int list_option;
             scanf("%d", &list_option);
 
-            if (list_option == 1)
-            {
+            if (list_option == 1) {
                 user_list.list = true;
             }
-            else if (list_option == 2)
-            {
+            else if (list_option == 2) {
                 user_list.list = false;
-                printf("Nombre del usuario: ");
+                printf("Ingrese el nombre del usuario: ");
                 scanf("%s", input);
                 user_list.user_name = input;
             }
-            else
-            {
-                printf("Opcion invalida.\n");
+            else {
+                printf("Opción inválida.\n");
+                continue; // Restart the loop
             }
 
             user_option.userlist = &user_list;
             
         }
-        else if (op == 3) //cambiar estatus
+        else if (op == 3) //cambiar status
         {
             user_option.op = 3;
-            ChatSistOS__Status *status = malloc(sizeof(ChatSistOS__Status));
-            chat_sist_os__status__init(status);
-            
+            ChatSistOS__Status status = CHAT_SIST_OS__STATUS__INIT;
+
             printf("Ingrese su usuario: ");
             scanf("%s", input);
-            status->user_name = strdup(input);
+            status.user_name = input;
 
-            printf("Escriba 1 para en linea, 2 ocupado, 3 para desconectado: ");
+            printf("Elija su status:\n");
+            printf("1. En linea\n");
+            printf("2. Ocupado\n");
+            printf("3. Desconectado\n");
             int new_status;
             scanf("%d", &new_status);
-            status->user_state = new_status;
+            status.user_state = new_status;
 
-            user_option.status = status;
+            user_option.status = &status;
+
             
         }
 
@@ -186,10 +188,10 @@ int main()
             ChatSistOS__Message message = CHAT_SIST_OS__MESSAGE__INIT;
             printf("Escriba su mensaje publico\n");
             
-                printf("Mensaje: ");
-                scanf(" %[^\n]", input);
-                message.message_content = input;
-                user_option.message = &message;
+            printf("Mensaje: ");
+            scanf(" %[^\n]", input);
+            message.message_content = input;
+            user_option.message = &message;
             
         }
         else if (op == 5) //mensaje privado
