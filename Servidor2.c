@@ -24,40 +24,6 @@ typedef struct
 client_t clients[MAX_CLIENTS];
 int num_clients = 0;
 
-void add_client(int client_fd)
-{
-    if (num_clients >= MAX_CLIENTS)
-    {
-        printf("Máximo número de clientes alcanzado\n");
-        close(client_fd);
-        return;
-    }
-
-    client_t *client = &clients[num_clients];
-    client->client_fd = client_fd;
-    client->thread_id = 0;
-    num_clients++;
-
-    printf("Nuevo usuario conectado\n");
-}
-
-void remove_client(int index)
-{
-    client_t *client = &clients[index];
-    close(client->client_fd);
-    memset(client->username, 0, BUFFER_SIZE);
-    client->thread_id = 0;
-    num_clients--;
-
-    printf("Usuario desconectado\n");
-
-    // Si no es el último cliente de la lista, movemos el último cliente a su posición
-    if (index < num_clients)
-    {
-        clients[index] = clients[num_clients];
-    }
-}
-
 void *client_handler(void *arg)
 {
     client_t *client = (client_t *)arg;
@@ -339,101 +305,79 @@ void *client_handler(void *arg)
     pthread_exit(NULL);
 }
 
-int main(int argc, char *argv[])
-{
-
-    int port = atoi(argv[1]);
-
-    int server_fd, client_fd;
-    struct sockaddr_in server_addr, client_addr;
-    socklen_t client_addr_len = sizeof(client_addr);
-    pthread_t thread_id;
-
-    // Inicializamos la lista de clientes
-    memset(clients, 0, sizeof(clients));
-    num_clients = 0;
-
-    // Creamos el socket
-    server_fd = socket(AF_INET, SOCK_STREAM, 0);
-    if (server_fd == -1)
-    {
-        perror("Error del socket");
-        exit(EXIT_FAILURE);
+void add_client(int client_fd) {
+    if (num_clients >= MAX_CLIENTS) {
+        printf("Máximo número de clientes alcanzado\n");
+        close(client_fd);
+        return;
     }
 
-    // Dirección del servidor
-    memset(&server_addr, 0, sizeof(server_addr));
+    clients[num_clients++] = (client_t) { .client_fd = client_fd };
+
+    printf("Nuevo usuario conectado\n");
+}
+
+void remove_client(int index) {
+    client_t *client = &clients[index];
+    close(client->client_fd);
+    memset(client, 0, sizeof(client_t));
+    num_clients--;
+
+    printf("Usuario desconectado\n");
+
+    if (index < num_clients) {
+        *client = clients[num_clients];
+    }
+}
+
+int main(int argc, char *argv[]) {
+    if (argc != 2) {
+        printf("Uso: %s <puerto>\n", argv[0]);
+        return 1;
+    }
+
+    int port = atoi(argv[1]);
+    int server_fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (server_fd == -1) {
+        perror("Error al crear el socket");
+        return 1;
+    }
+
+    struct sockaddr_in server_addr = {0};
     server_addr.sin_family = AF_INET;
     server_addr.sin_addr.s_addr = INADDR_ANY;
     server_addr.sin_port = htons(port);
 
-    // Socket -> dirección
-    if (bind(server_fd, (struct sockaddr *)&server_addr, sizeof(server_addr)) == -1)
-    {
-        perror("Error al dirigir el socket");
-        exit(EXIT_FAILURE);
+    if (bind(server_fd, (struct sockaddr *)&server_addr, sizeof(server_addr)) == -1) {
+        perror("Error al asociar el socket con la dirección del servidor");
+        return 1;
     }
 
-    // Verficamos nuevas conexiones
-    if (listen(server_fd, MAX_CLIENTS) == -1)
-    {
-        perror("Error de nuevos clientes");
-        exit(EXIT_FAILURE);
+    if (listen(server_fd, MAX_CLIENTS) == -1) {
+        perror("Error al escuchar por nuevas conexiones");
+        return 1;
     }
 
-    printf("Servidor ON. Esperando al cliente...\n");
+    printf("Servidor iniciado. Esperando conexiones...\n");
 
-    // Si hay conexiones nuevas
-    while (1)
-    {
-        client_fd = accept(server_fd, (struct sockaddr *)&client_addr, &client_addr_len);
-        if (client_fd == -1)
-        {
-            perror("Error de conexión");
+    while (1) {
+        int client_fd = accept(server_fd, NULL, NULL);
+        if (client_fd == -1) {
+            perror("Error al aceptar la conexión entrante");
             continue;
         }
 
-        printf("Nuevo cliente\n");
+        printf("Nueva conexión entrante\n");
 
-        // Agregamos el cliente a la lista
-        if (num_clients >= MAX_CLIENTS)
-        {
-            printf("Clientes FULL\n");
-            close(client_fd);
-            continue;
-        }
+        add_client(client_fd);
 
-        client_t *client = &clients[num_clients];
-        client->client_fd = client_fd;
-        client->thread_id = 0;
-        num_clients++;
-
-        printf("Nuevo usuario\n");
-
-        // Hilo del cliente
-        if (pthread_create(&client->thread_id, NULL, client_handler, (void *)client) != 0)
-        {
-            perror("Error del hilo");
-            close(client_fd);
-            num_clients--;
-            continue;
-        }
-
-        // Desconeccion clientes
-        for (int i = 0; i < num_clients; i++)
-        {
-            client_t *c = &clients[i];
-            int ret = recv(c->client_fd, buffer, BUFFER_SIZE, MSG_DONTWAIT);
-            if (ret <= 0)
-            {
-                remove_client(i);
-                i--;
-            }
+        client_t *client = &clients[num_clients - 1];
+        if (pthread_create(&client->thread_id, NULL, client_handler, (void *)client) != 0) {
+            perror("Error al crear el hilo");
+            remove_client(num_clients - 1);
         }
     }
 
-    // Cerramos servidor
     close(server_fd);
-
     return 0;
 }
