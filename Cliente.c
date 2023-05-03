@@ -30,7 +30,7 @@ void receive_handler(void *arg)
     while ((bytes_received = recv(client_fd, buffer, BUFFER_SIZE, 0)) > 0)
     {
         // Unpack received message into ChatSistOSAnswer struct
-        ChatSistOS__Answer *answer = chat_sist_osanswerunpack(NULL, bytes_received, buffer);
+        ChatSistOS__Answer *answer = chat_sist_os__answer__unpack(NULL, bytes_received, buffer);
 
         // Handle decoding errors
         if (answer == NULL)
@@ -53,7 +53,7 @@ void receive_handler(void *arg)
         }
 
         // Liberar memoria
-        chat_sist_osanswer__free_unpacked(answer, NULL);
+        chat_sist_os__answer__free_unpacked(answer, NULL);
     }
 
     // Return NULL when done
