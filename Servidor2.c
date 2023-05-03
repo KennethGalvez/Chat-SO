@@ -67,109 +67,121 @@ void *client_handler(void *arg)
 
     ChatSistOS_Answer answer = CHAT_SIST_OSANSWER_INIT;
     int answer_size;
-
-    void handle_option_1(client_t *client, ChatSistOS__UserOption *user_option)
+        
+    // Recibimos mensajes del cliente
+    while ((bytes_received = recv(client_fd, buffer, BUFFER_SIZE, 0)) > 0)
     {
-        // Crear nuevo usuario
-        strcpy(client->username, create_user->username);
-        client->user_state = 1;
-
-        // Creamos lo que le pasaremos al cliente
-        ChatSistOS__Answer answer = CHAT_SIST_OS__ANSWER__INIT;
-        answer.response_message = "Usuario creado";
-        answer.op = 1;
-
-        uint8_t buffer[BUFFER_SIZE];
-        int answer_size = chat_sist_os__answer__get_packed_size(&answer);
-        chat_sist_os__answer__pack(&answer, buffer);
-        int bytes_sent = send(client->client_fd, buffer, answer_size, 0);
-        if (bytes_sent < 0)
+        // Procesamos el mensaje
+        ChatSistOS__UserOption *user_option = chat_sist_os__user_option__unpack(NULL, bytes_received, buffer);
+        if (user_option == NULL)
         {
-            perror("Error al enviar el mensaje al cliente");
+            perror("Error al decodificar el mensaje");
+            break;
         }
 
-        size_t username_length = strlen(client->username);
-
-        printf("Usuario ");
-        for (int i = 0; i < username_length; i++) {
-            putchar('_');
-        }
-        printf(" creado\n");
-	
-    }
-
-    void handle_option_2(client_t *client, ChatSistOS__UserOption *user_option)
-    {
-        // Verificar opción 
-        if (user_option->userlist->list)
+        int ope = user_option->op;
+        if (ope == 1)
         {
-            // Mostrar lista 
-            printf("Lista de Usuarios en linea:\n");
-            for (int i = 0; i < num_clients; i++)
+            // Crear nuevo usuario
+            strcpy(client->username, user_option->createuser->username);
+            client->user_state = 1;
+
+            // Creamos lo que le pasaremos al cliente
+            ChatSistOS__Answer answer = CHAT_SIST_OS__ANSWER__INIT;
+            answer.response_message = "Usuario creado";
+            answer.op = 1;
+
+            uint8_t buffer[BUFFER_SIZE];
+            int answer_size = chat_sist_os__answer__get_packed_size(&answer);
+            chat_sist_os__answer__pack(&answer, buffer);
+            int bytes_sent = send(client->client_fd, buffer, answer_size, 0);
+            if (bytes_sent < 0)
             {
-                if (clients[i].thread_id != 0)
-                {
-                    printf("- %s\n", clients[i].username);
-                }
+                perror("Error al enviar el mensaje al cliente");
             }
+
+            size_t username_length = strlen(client->username);
+
+            printf("Usuario ");
+            for (int i = 0; i < username_length; i++) {
+                putchar('_');
+            }
+            printf(" creado\n");
+   
         }
-        else
+        else if (ope == 2)
         {
-            //Usuario solo
-            const char *target_username = user_option->userlist->user_name;
-            bool user_found = false;
-
-            printf("Información de %s:\n", target_username);
-
-            for (int i = 0; i < num_clients; i++)
+            // Verificar opción 
+            if (user_option->userlist->list)
             {
-                if (strcmp(clients[i].username, target_username) == 0)
+                // Mostrar lista 
+                printf("Lista de Usuarios en linea:\n");
+                for (int i = 0; i < num_clients; i++)
                 {
-                    printf("- Estado: ");
-                    switch (clients[i].user_state)
+                    if (clients[i].thread_id != 0)
                     {
-                        case 1:
-                            printf("Activo\n");
-                            break;
-                        case 2:
-                            printf("Ocupado\n");
-                            break;
-                        case 3:
-                            printf("Inactivo\n");
-                            break;
-                        default:
-                            printf("Desconocido\n");
-                            break;
+                        printf("- %s\n", clients[i].username);
                     }
-                    user_found = true;
-                    break;
+                }
+            }
+            else
+            {
+                //Usuario solo
+                const char *target_username = user_option->userlist->user_name;
+                bool user_found = false;
+
+                printf("Información de %s:\n", target_username);
+
+                for (int i = 0; i < num_clients; i++)
+                {
+                    if (strcmp(clients[i].username, target_username) == 0)
+                    {
+                        printf("- Estado: ");
+                        switch (clients[i].user_state)
+                        {
+                            case 1:
+                                printf("Activo\n");
+                                break;
+                            case 2:
+                                printf("Ocupado\n");
+                                break;
+                            case 3:
+                                printf("Inactivo\n");
+                                break;
+                            default:
+                                printf("Desconocido\n");
+                                break;
+                        }
+                        user_found = true;
+                        break;
+                    }
+                }
+
+                if (!user_found)
+                {
+                    printf("El usuario %s no esta conectado.\n", target_username);
                 }
             }
 
-            if (!user_found)
+            // Respuesta al cliente
+            ChatSistOS__Answer answer = CHAT_SIST_OS__ANSWER__INIT;
+            answer.op = 2;
+            answer.response_status_code = 200;
+            size_t answer_size = chat_sist_os__answer__get_packed_size(&answer);
+            uint8_t *buffer = malloc(answer_size);
+            chat_sist_os__answer__pack(&answer, buffer);
+            ssize_t bytes_sent = send(client_fd, buffer, answer_size, 0);
+            if (bytes_sent < 0)
             {
-                printf("El usuario %s no esta conectado.\n", target_username);
+                perror("Error mensaje cliente");
             }
+            free(buffer);
+
         }
 
-        // Respuesta al cliente
-        ChatSistOS__Answer answer = CHAT_SIST_OS__ANSWER__INIT;
-        answer.op = 2;
-        answer.response_status_code = 200;
-        size_t answer_size = chat_sist_os__answer__get_packed_size(&answer);
-        uint8_t *buffer = malloc(answer_size);
-        chat_sist_os__answer__pack(&answer, buffer);
-        ssize_t bytes_sent = send(client_fd, buffer, answer_size, 0);
-        if (bytes_sent < 0)
+        else if (ope == 3)
         {
-            perror("Error mensaje cliente");
-        }
-        free(buffer);
-        }
-
-    void handle_option_3(client_t *client, ChatSistOS__UserOption *user_option)
-    {
-        if (user_option->status != NULL && strlen(user_option->status->user_name) > 0)
+            if (user_option->status != NULL && strlen(user_option->status->user_name) > 0)
             {
                 // Obtener el nombre de usuario
                 const char *target_username = user_option->status->user_name;
@@ -240,114 +252,81 @@ void *client_handler(void *arg)
                     free(buffer);
                 }
             }
-        else
-            {
-                // Cambiar el estado del usuario
-                client->user_state = user_option->status->user_state;
-
-                // Crear mensaje de respuesta para el cliente
-                ChatSistOS__Answer answer = CHAT_SIST_OS__ANSWER__INIT;
-                answer.op = 3;
-                answer.response_status_code = 200;
-                answer.response_message = "Estado cambiado";
-
-                size_t answer_size = chat_sist_os__answer__get_packed_size(&answer);
-                uint8_t *buffer = malloc(answer_size);
-                chat_sist_os__answer__pack(&answer, buffer);
-                ssize_t bytes_sent = send(client_fd, buffer, answer_size, 0);
-                if (bytes_sent < 0)
+            else
                 {
-                    perror("Error mensaje cliente");
-                }
+                    // Cambiar el estado del usuario
+                    client->user_state = user_option->status->user_state;
 
-                free(buffer);
-
-                printf("Se cambió el estado a %d\n", client->user_state);
-            }
-    }
-
-    void handle_option_4(client_t *client, ChatSistOS__UserOption *user_option)
-    {
-        // Send message
-        if (user_option->message->message_private == 1)
-        {
-            printf("Mensaje Privado de %s para %s: %s\n", client->username, user_option->message->message_destination, user_option->message->message_content);
-            
-            // Private message
-            for (int i = 0; i < num_clients; i++)
-            {
-                if (strcmp(clients[i].username, user_option->message->message_destination) == 0)
-                {
-                    answer.op = 4;
+                    // Crear mensaje de respuesta para el cliente
+                    ChatSistOS__Answer answer = CHAT_SIST_OS__ANSWER__INIT;
+                    answer.op = 3;
                     answer.response_status_code = 200;
-                    answer.message = user_option->message;
-                    answer_size = chat_sist_os__answer__get_packed_size(&answer);
-                    chat_sist_os__answer__pack(&answer, buffer);
+                    answer.response_message = "Estado cambiado";
 
-                    bytes_sent = send(clients[i].client_fd, buffer, answer_size, 0);
+                    size_t answer_size = chat_sist_os__answer__get_packed_size(&answer);
+                    uint8_t *buffer = malloc(answer_size);
+                    chat_sist_os__answer__pack(&answer, buffer);
+                    ssize_t bytes_sent = send(client_fd, buffer, answer_size, 0);
                     if (bytes_sent < 0)
                     {
                         perror("Error mensaje cliente");
                     }
-                    break;
-                }
-            }
-        }
-        else
-        {
-            printf("Mensaje Global de %s: %s\n", client->username, user_option->message->message_content);
-            
-            // Global message
-            for (int i = 0; i < num_clients; i++)
-            {
-                if (clients[i].thread_id != 0 && clients[i].client_fd != client->client_fd)
-                {
-                    answer.op = 4;
-                    answer.response_status_code = 200;
-                    answer.message = user_option->message;
-                    answer_size = chat_sist_os__answer__get_packed_size(&answer);
-                    chat_sist_os__answer__pack(&answer, buffer);
 
-                    bytes_sent = send(clients[i].client_fd, buffer, answer_size, 0);
-                    if (bytes_sent < 0)
+                    free(buffer);
+
+                    printf("Se cambió el estado a %d\n", client->user_state);
+                }
+        }
+        else if (ope == 4)
+        {
+                // Send message
+            if (user_option->message->message_private == 1)
+            {
+                printf("Mensaje Privado de %s para %s: %s\n", client->username, user_option->message->message_destination, user_option->message->message_content);
+                
+                // Private message
+                for (int i = 0; i < num_clients; i++)
+                {
+                    if (strcmp(clients[i].username, user_option->message->message_destination) == 0)
                     {
-                        perror("Error mensaje cliente");
+                        answer.op = 4;
+                        answer.response_status_code = 200;
+                        answer.message = user_option->message;
+                        answer_size = chat_sist_os__answer__get_packed_size(&answer);
+                        chat_sist_os__answer__pack(&answer, buffer);
+
+                        bytes_sent = send(clients[i].client_fd, buffer, answer_size, 0);
+                        if (bytes_sent < 0)
+                        {
+                            perror("Error mensaje cliente");
+                        }
+                        break;
                     }
                 }
             }
-        }
-
-    }
-
-    option_handler option_handlers[NUM_OPTIONS] = {
-        handle_option_1,
-        handle_option_2,
-        handle_option_3,
-        handle_option_4};
-
-    // Recibimos mensajes del cliente
-    while ((bytes_received = recv(client_fd, buffer, BUFFER_SIZE, 0)) > 0)
-    {
-        // Procesamos el mensaje
-        ChatSistOS__UserOption *user_option = chat_sist_os__user_option__unpack(NULL, bytes_received, buffer);
-        if (user_option == NULL)
-        {
-            perror("Error al decodificar el mensaje");
-            break;
-        }
-
-        // Manejamos la opción
-        if (user_option->op > 0 && user_option->op <= NUM_OPTIONS)
-        {
-            option_handlers[user_option->op - 1](client, user_option);
-        }
-        else
-        {
-            // Opción inválida
-            if ((user_option->op) != 4)
+            else
             {
-                printf("Usuario %s intento una opción invalida \n", client->username);
-            }
+                printf("Mensaje Global de %s: %s\n", client->username, user_option->message->message_content);
+                
+                // Global message
+                for (int i = 0; i < num_clients; i++)
+                {
+                    if (clients[i].thread_id != 0 && clients[i].client_fd != client->client_fd)
+                    {
+                        answer.op = 4;
+                        answer.response_status_code = 200;
+                        answer.message = user_option->message;
+                        answer_size = chat_sist_os__answer__get_packed_size(&answer);
+                        chat_sist_os__answer__pack(&answer, buffer);
+
+                        bytes_sent = send(clients[i].client_fd, buffer, answer_size, 0);
+                        if (bytes_sent < 0)
+                        {
+                            perror("Error mensaje cliente");
+                        }
+                    }
+                }
+            }      
         }
         chat_sist_os__user_option__free_unpacked(user_option, NULL);
     }
