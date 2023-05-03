@@ -3,7 +3,6 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <netinet/in.h>
-#include <cstring>
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/socket.h>
@@ -118,7 +117,7 @@ readPid = recv(socketInt, buffer, 2048, 0);
 
         if (slot != -1)
         {
-            strncpy(nuevo_cliente->username, "", sizeof(nuevo_cliente->username))
+            strncpy(nuevo_cliente->username, "", sizeof(nuevo_cliente->username));
             allClients[slot].ip = "";
             allClients[slot].socket = 0;
             allClients[slot].status = 0;
@@ -540,7 +539,7 @@ else if (newRequest.option == 5) {
     // Serialize the response message
     if (!serialize_chat_ServerResponse(&newResponse, responseString, &responseStringLen)) {
         fprintf(stderr, "Failed to serialize response message\n");
-        return;
+        return 0;
     }
 
     // Send the response message back to the client

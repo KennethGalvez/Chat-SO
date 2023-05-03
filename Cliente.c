@@ -7,6 +7,7 @@
 #include <netinet/in.h>
 #include <netinet/ip.h>
 #include <unistd.h>
+#include "chat.pb-c.h"
 
 void main(void){
     char cadena[100]; /*Guardar Mensajes Recibidos*/
